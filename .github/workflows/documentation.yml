@@ -1,0 +1,44 @@
+# This action generates the documentation and then deploys it to the `gh-pages` branch.
+
+name: Documentation
+
+on:
+  push:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container: docker.io/tttapa/docker-doxygen
+
+    steps:
+    # Checks-out the repository under $GITHUB_WORKSPACE
+    - uses: actions/checkout@v2
+    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+    # Create the `gh-pages` branch if it doesn't exist already, check it out, 
+    # and copy it to /tmp/staging.
+    - name: Create staging area
+      run: |
+        rm -rf /tmp/staging
+        git fetch origin gh-pages:gh-pages ||:
+        git checkout gh-pages || \
+        { git checkout --orphan gh-pages && git rm -rf . && git clean -fxd ; }
+        cp -ar $GITHUB_WORKSPACE/ /tmp/staging
+        git checkout ${GITHUB_REF##*/}
+        git config --global --add safe.directory /tmp/staging
+
+    # Generate the documentation and save it in /tmp/staging
+    - name: Generate documentation
+      run: ./scripts/gen-docs.sh /tmp/staging
+
+    # Commit the new documentation, squash the commits, and push it to GitHub
+    - name: Commit and push documention
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "actions@github.com"
+        commithash=$(git rev-parse HEAD)
+        cd /tmp/staging
+        git add .
+        git commit -m "Documentation for ${commithash}" && \
+        git reset $(git commit-tree HEAD^{tree} -m "Documentation for ${commithash}") && \
+        git push -f origin gh-pages ||:

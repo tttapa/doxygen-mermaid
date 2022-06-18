@@ -1,0 +1,37 @@
+flowchart
+    start(( ))
+    subgraph bar
+    bar_coro_alloc["coroutine frame allocation\n<code>promise_type promise {};</code>\n<code>promise.get_return_object()</code>"]
+    bar_coro_alloc --> call_foo["<code>task&lt;&gt; f = foo();</code>"]
+    await_f["<code>co_await f;</code>"]
+    await_f --> op_co_await["<code>f.operator co_await()</code>"]
+    awaiter_promise["<code>task::awaiter a {f.promise}</code>"]
+    op_co_await --> awaiter_promise
+    await_rdy["<code>a.await_ready()</code>"]
+    awaiter_promise --> await_rdy
+    await_rdy --> if_await_rdy{{"<code>f.done()</code>"}}
+    if_await_rdy -->|false| await_sus["<code>a.await_suspend(bar)</code>"]
+    if_await_rdy -->|true| await_rsm["<code>a.await_resume()</code>"]
+    await_sus --> await_sus_body["<code>f.promise.continuation = bar\nreturn foo</code>"]
+    await_rsm --> bar_ret_void["<code>promise.return_void()</code>"]
+    bar_ret_void --> destroy_f["<code>f.~task()</code>"]
+    destroy_f --> destroy_foo["<code>foo.destroy()</code>"]
+    destroy_foo --> bar_final_sus["<code>promise.final_suspend()</code>"]
+    end
+    subgraph foo
+    coro_alloc["coroutine frame allocation\n<code>promise_type promise {};</code>\n<code>promise.get_return_object()</code>"]
+    coro_alloc --> init_sus["<code>co_await promise.initial_suspend()</code>"]
+    co_ret["<code>co_return;</code>"]
+    co_ret --> ret_void["<code>promise.return_void()</code>"]
+    ret_void --> final_sus["<code>promise.final_suspend()</code>"]
+    final_sus --> final_sus_a["<code>task::promise_type::final_awaiter a {}</code>"]
+    final_sus_a --> final_await_sus["<code>a.await_suspend(foo)</code>"]
+    final_await_sus --> final_await_sus_body["<code>return promise.continuation</code>"]
+    end
+    end_(( ))
+    start --> bar_coro_alloc
+    call_foo -->|Function call| coro_alloc
+    init_sus -->|Suspend| await_f
+    await_sus_body -->|Symmetric Control Transfer| co_ret
+    final_await_sus_body -->|Symmetric Control Transfer| await_rsm
+    bar_final_sus --> end_
