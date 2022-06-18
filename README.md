@@ -4,6 +4,8 @@ This is an example of how to include [Mermaid](https://mermaid-js.github.io/merm
 
 You can view the result at https://tttapa.github.io/doxygen-mermaid/Doxygen.
 
+![screenshot](images/screenshot.png)
+
 ## Step-by-step instructions
 
 1. Add the Mermaid JavaScript code to the doxygen header and footer.
